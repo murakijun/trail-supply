@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { AppData, Activity, SupplyItem } from './types';
-import { loadData, updateSupplies, upsertActivity } from './utils/storage';
+import { loadData, updateSupplies, upsertActivity, deleteActivity } from './utils/storage';
 import HomeView from './components/HomeView';
 import SupplyMaster from './components/SupplyMaster';
 import ActivitySetup from './components/ActivitySetup';
@@ -54,6 +54,11 @@ export default function App() {
     } else {
       setView({ type: 'history', activityId: activity.id });
     }
+  }
+
+  function handleDeleteActivity(id: string) {
+    const updated = deleteActivity(id);
+    setData(updated);
   }
 
   function handleHistoryResume(activity: Activity) {
@@ -117,6 +122,7 @@ export default function App() {
       onNewActivity={() => setView({ type: 'activity-setup' })}
       onOpenSupplyMaster={() => setView({ type: 'supply-master' })}
       onOpenActivity={handleOpenActivity}
+      onDeleteActivity={handleDeleteActivity}
     />
   );
 }

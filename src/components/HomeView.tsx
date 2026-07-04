@@ -1,4 +1,4 @@
-import { Plus, Settings, Play, CheckCircle, Clock, ChevronRight } from 'lucide-react';
+import { Plus, Settings, Play, CheckCircle, Clock, ChevronRight, Trash2 } from 'lucide-react';
 import { Activity } from '../types';
 
 interface Props {
@@ -6,6 +6,7 @@ interface Props {
   onNewActivity: () => void;
   onOpenSupplyMaster: () => void;
   onOpenActivity: (activity: Activity) => void;
+  onDeleteActivity: (id: string) => void;
 }
 
 const STATUS_LABEL: Record<Activity['status'], string> = {
@@ -20,9 +21,15 @@ const STATUS_COLOR: Record<Activity['status'], string> = {
   completed: 'text-gray-500 bg-gray-100',
 };
 
-export default function HomeView({ activities, onNewActivity, onOpenSupplyMaster, onOpenActivity }: Props) {
+export default function HomeView({ activities, onNewActivity, onOpenSupplyMaster, onOpenActivity, onDeleteActivity }: Props) {
   const active = activities.filter(a => a.status === 'active');
   const others = activities.filter(a => a.status !== 'active');
+
+  function handleDelete(activity: Activity) {
+    if (confirm(`「${activity.name}」を削除しますか？\n記録もすべて削除されます。`)) {
+      onDeleteActivity(activity.id);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -59,7 +66,9 @@ export default function HomeView({ activities, onNewActivity, onOpenSupplyMaster
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">進行中</h2>
             <div className="space-y-3">
               {active.map(a => (
-                <ActivityCard key={a.id} activity={a} onClick={() => onOpenActivity(a)} />
+                <ActivityCard key={a.id} activity={a}
+                  onClick={() => onOpenActivity(a)}
+                  onDelete={() => handleDelete(a)} />
               ))}
             </div>
           </div>
@@ -71,7 +80,9 @@ export default function HomeView({ activities, onNewActivity, onOpenSupplyMaster
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">過去の記録</h2>
             <div className="space-y-3">
               {others.map(a => (
-                <ActivityCard key={a.id} activity={a} onClick={() => onOpenActivity(a)} />
+                <ActivityCard key={a.id} activity={a}
+                  onClick={() => onOpenActivity(a)}
+                  onDelete={() => handleDelete(a)} />
               ))}
             </div>
           </div>
@@ -89,26 +100,41 @@ export default function HomeView({ activities, onNewActivity, onOpenSupplyMaster
   );
 }
 
-function ActivityCard({ activity, onClick }: { activity: Activity; onClick: () => void }) {
+function ActivityCard({ activity, onClick, onDelete }: {
+  activity: Activity;
+  onClick: () => void;
+  onDelete: () => void;
+}) {
   const totalRecords = activity.records.length;
   return (
-    <button onClick={onClick} className="w-full bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 text-left active:bg-gray-50">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${activity.status === 'active' ? 'bg-green-100' : activity.status === 'preparing' ? 'bg-yellow-100' : 'bg-gray-100'}`}>
-        {activity.status === 'active' ? <Play size={18} className="text-green-700 ml-0.5" /> :
-         activity.status === 'completed' ? <CheckCircle size={18} className="text-gray-400" /> :
-         <Clock size={18} className="text-yellow-600" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="font-semibold text-gray-900 truncate">{activity.name}</div>
-        <div className="text-xs text-gray-400 mt-0.5">
-          {activity.date}
-          {activity.startTime && ` ・ ${activity.startTime}スタート`}
-          {` ・ ${totalRecords}件の記録`}
+    <div className="bg-white rounded-xl shadow-sm flex items-stretch">
+      <button onClick={onClick} className="flex-1 p-4 flex items-center gap-3 text-left active:bg-gray-50 rounded-l-xl min-w-0">
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+          activity.status === 'active' ? 'bg-green-100' :
+          activity.status === 'preparing' ? 'bg-yellow-100' : 'bg-gray-100'
+        }`}>
+          {activity.status === 'active' ? <Play size={18} className="text-green-700 ml-0.5" /> :
+           activity.status === 'completed' ? <CheckCircle size={18} className="text-gray-400" /> :
+           <Clock size={18} className="text-yellow-600" />}
         </div>
-      </div>
-      <div className={`text-xs font-medium px-2 py-1 rounded-full flex-shrink-0 ${STATUS_COLOR[activity.status]}`}>
-        {STATUS_LABEL[activity.status]}
-      </div>
-    </button>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-gray-900 truncate">{activity.name}</div>
+          <div className="text-xs text-gray-400 mt-0.5">
+            {activity.date}
+            {activity.startTime && ` ・ ${activity.startTime}スタート`}
+            {` ・ ${totalRecords}件の記録`}
+          </div>
+        </div>
+        <div className={`text-xs font-medium px-2 py-1 rounded-full flex-shrink-0 ${STATUS_COLOR[activity.status]}`}>
+          {STATUS_LABEL[activity.status]}
+        </div>
+      </button>
+      <button
+        onClick={onDelete}
+        className="px-4 flex items-center justify-center text-gray-300 active:text-red-500 border-l rounded-r-xl"
+      >
+        <Trash2 size={18} />
+      </button>
+    </div>
   );
 }

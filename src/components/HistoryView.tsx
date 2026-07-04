@@ -41,7 +41,7 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
     return `+${m}分`;
   }
 
-  // Per-supply stats
+  // Per-supply stats（持参分）
   const supplyStats = activity.carriedSupplies.map(c => {
     const supply = supplies.find(s => s.id === c.supplyId);
     if (!supply) return null;
@@ -49,6 +49,18 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
     const pct = c.carriedAmount > 0 ? Math.min(100, Math.round((total / c.carriedAmount) * 100)) : 0;
     return { supply, carried: c.carriedAmount, total, pct };
   }).filter(Boolean) as { supply: SupplyItem; carried: number; total: number; pct: number }[];
+
+  // エイドで受け取った補給（carriedSuppliesにないもの）
+  const carriedIds = new Set(activity.carriedSupplies.map(c => c.supplyId));
+  const aidSupplyIds = [...new Set(
+    activity.records.filter(r => !carriedIds.has(r.supplyId)).map(r => r.supplyId)
+  )];
+  const aidStats = aidSupplyIds.map(id => {
+    const supply = supplies.find(s => s.id === id);
+    if (!supply) return null;
+    const total = activity.records.filter(r => r.supplyId === id).reduce((s, r) => s + r.amount, 0);
+    return { supply, total };
+  }).filter(Boolean) as { supply: SupplyItem; total: number }[];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -68,7 +80,7 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
 
       <div className="p-4 space-y-4">
         {/* Supply summary */}
-        {supplyStats.length > 0 && (
+        {(supplyStats.length > 0 || aidStats.length > 0) && (
           <div className="bg-white rounded-xl p-4">
             <h2 className="font-semibold text-gray-800 mb-3">補給サマリー</h2>
             <div className="space-y-3">
@@ -85,6 +97,20 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
                   </div>
                 </div>
               ))}
+              {aidStats.length > 0 && (
+                <>
+                  {supplyStats.length > 0 && <div className="border-t pt-3 mt-1" />}
+                  <div className="text-xs font-semibold text-orange-500 uppercase tracking-wide mb-2">エイド受け取り</div>
+                  {aidStats.map(({ supply, total }) => (
+                    <div key={supply.id} className="flex items-center gap-2">
+                      <span className="text-lg">{supply.emoji}</span>
+                      <span className="font-medium text-sm text-gray-800 flex-1">{supply.name}</span>
+                      <span className="text-sm text-gray-500">{total}{supply.unit}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 font-medium">エイド</span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         )}

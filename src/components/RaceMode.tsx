@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Square, Clock } from 'lucide-react';
+import { Square, Clock, Plus, X } from 'lucide-react';
 import { Activity, SupplyItem, IntakeRecord } from '../types';
 import { generateId } from '../utils/storage';
 
@@ -31,10 +31,10 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
   const [showConfirm, setShowConfirm] = useState(false);
   const [amountDialog, setAmountDialog] = useState<{ supply: SupplyItem } | null>(null);
   const [customAmount, setCustomAmount] = useState('');
+  const [aidDialog, setAidDialog] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tick, setTick] = useState(0);
 
-  // Start time
   const startMs = useRef<number>((() => {
     if (activity.startTime) {
       const [h, m] = activity.startTime.split(':').map(Number);
@@ -66,8 +66,7 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
     };
     const newRecords = [...records, record];
     setRecords(newRecords);
-    const updated: Activity = { ...activity, records: newRecords };
-    onUpdate(updated);
+    onUpdate({ ...activity, records: newRecords });
   }
 
   function handleTap(supply: SupplyItem) {
@@ -88,9 +87,14 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
     }
   }
 
+  function openAmountDialog(supply: SupplyItem) {
+    setAidDialog(false);
+    setAmountDialog({ supply });
+    setCustomAmount(String(supply.defaultAmount));
+  }
+
   function confirmFinish() {
-    const updated: Activity = { ...activity, records, status: 'completed' };
-    onFinish(updated);
+    onFinish({ ...activity, records, status: 'completed' });
   }
 
   const recentRecords = [...records].reverse().slice(0, 5);
@@ -124,7 +128,7 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
       {/* Supply buttons */}
       <div className="flex-1 px-3 py-2 grid grid-cols-2 gap-3 content-start overflow-y-auto">
         {carriedSupplies.length === 0 && (
-          <div className="col-span-2 text-center text-gray-500 py-12">
+          <div className="col-span-2 text-center text-gray-500 py-8">
             持参補給がありません
           </div>
         )}
@@ -146,10 +150,7 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
               <span className="text-4xl leading-none">{supply.emoji}</span>
               <span className="font-bold text-base leading-tight text-center">{supply.name}</span>
               <span className="text-xs opacity-80">{supply.defaultAmount}{supply.unit}/タップ</span>
-              {last && (
-                <span className="text-xs opacity-70 mt-0.5">{minutesAgo(last)}</span>
-              )}
-              {/* consumption bar */}
+              {last && <span className="text-xs opacity-70 mt-0.5">{minutesAgo(last)}</span>}
               <div className="w-full mt-1 bg-black/20 rounded-full h-1.5">
                 <div className="h-1.5 rounded-full bg-white/70 transition-all" style={{ width: `${pct}%` }} />
               </div>
@@ -157,6 +158,16 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
             </button>
           );
         })}
+
+        {/* エイド補給ボタン */}
+        <button
+          onClick={() => setAidDialog(true)}
+          className="col-span-2 rounded-2xl p-4 flex items-center justify-center gap-2 border-2 border-dashed border-gray-600 text-gray-400 active:border-gray-400 active:text-gray-300 transition-colors"
+          style={{ minHeight: '64px' }}
+        >
+          <Plus size={20} />
+          <span className="font-semibold">エイドで受け取った補給を記録</span>
+        </button>
       </div>
 
       {/* Recent records */}
@@ -196,6 +207,38 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
         </div>
       )}
 
+      {/* Aid station picker dialog */}
+      {aidDialog && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-end">
+          <div className="bg-white text-gray-900 w-full rounded-t-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b">
+              <h2 className="text-lg font-bold">エイド補給を記録</h2>
+              <button onClick={() => setAidDialog(false)} className="p-1 text-gray-400">
+                <X size={22} />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              {supplies.length === 0 && (
+                <p className="text-gray-400 text-center py-8">補給マスターにアイテムがありません</p>
+              )}
+              <div className="grid grid-cols-3 gap-3">
+                {supplies.map(supply => (
+                  <button
+                    key={supply.id}
+                    onClick={() => openAmountDialog(supply)}
+                    className="rounded-2xl p-3 flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                    style={{ backgroundColor: supply.color }}
+                  >
+                    <span className="text-3xl leading-none">{supply.emoji}</span>
+                    <span className="text-white font-semibold text-xs text-center leading-tight">{supply.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Amount dialog */}
       {amountDialog && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-end">
@@ -209,11 +252,11 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
                 { label: `2個 (${amountDialog.supply.defaultAmount * 2}${amountDialog.supply.unit})`, val: amountDialog.supply.defaultAmount * 2 },
               ].map(opt => (
                 <button key={opt.val} onClick={() => { addRecord(amountDialog.supply, opt.val); setAmountDialog(null); }}
-                  className="py-3 border-2 rounded-xl font-medium text-sm border-gray-200 hover:border-blue-500 hover:bg-blue-50">
+                  className="py-3 border-2 rounded-xl font-medium text-sm border-gray-200">
                   {opt.label}
                 </button>
               ))}
-              <div className="flex gap-2 items-center col-span-1">
+              <div className="flex gap-2 items-center">
                 <input
                   type="number"
                   value={customAmount}
@@ -238,7 +281,6 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
         </div>
       )}
 
-      {/* suppress unused tick warning */}
       <span className="hidden">{tick}</span>
     </div>
   );
