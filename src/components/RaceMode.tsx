@@ -20,10 +20,14 @@ function formatElapsed(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function minutesAgo(timestamp: string): string {
-  const diff = Math.floor((Date.now() - new Date(timestamp).getTime()) / 60000);
-  if (diff === 0) return 'たった今';
-  return `${diff}分前`;
+function elapsedSince(timestamp: string): string {
+  const totalSec = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+  if (totalSec < 5) return 'たった今';
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} 前`;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} 前`;
 }
 
 export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAddSupply }: Props) {
@@ -212,7 +216,11 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
               <span className="text-4xl leading-none">{supply.emoji}</span>
               <span className="font-bold text-base leading-tight text-center">{supply.name}</span>
               <span className="text-xs opacity-80">{supply.defaultAmount}{supply.unit}/タップ</span>
-              {last && <span className="text-xs opacity-70 mt-0.5">{minutesAgo(last)}</span>}
+              {last && (
+                <span className="text-sm font-mono font-bold opacity-90 mt-0.5 bg-black/20 px-2 py-0.5 rounded-lg">
+                  {elapsedSince(last)}
+                </span>
+              )}
               {isAid ? (
                 <span className="text-xs opacity-60 mt-1">計{total}{supply.unit}</span>
               ) : (
