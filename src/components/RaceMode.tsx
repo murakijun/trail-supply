@@ -36,6 +36,8 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
   const [adhocName, setAdhocName] = useState('');
   const [adhocAmount, setAdhocAmount] = useState('');
   const [adhocUnit, setAdhocUnit] = useState('個');
+  const [undoRecord, setUndoRecord] = useState<{ record: IntakeRecord; supply: SupplyItem } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -70,12 +72,25 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
     };
     const newRecords = [...records, record];
     setRecords(newRecords);
-    // エイドで初めて記録した補給はcarriedSuppliesに追加してボタン化する
     const alreadyCarried = activity.carriedSupplies.some(c => c.supplyId === supply.id);
     const newCarried = alreadyCarried
       ? activity.carriedSupplies
       : [...activity.carriedSupplies, { supplyId: supply.id, carriedAmount: 0 }];
     onUpdate({ ...activity, records: newRecords, carriedSupplies: newCarried });
+
+    // 取り消しトーストを表示（4秒で自動消え）
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoRecord({ record, supply });
+    undoTimer.current = setTimeout(() => setUndoRecord(null), 4000);
+  }
+
+  function handleUndo() {
+    if (!undoRecord) return;
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    const newRecords = records.filter(r => r.id !== undoRecord.record.id);
+    setRecords(newRecords);
+    onUpdate({ ...activity, records: newRecords });
+    setUndoRecord(null);
   }
 
   function handleTap(supply: SupplyItem) {
@@ -227,6 +242,22 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Undo toast */}
+      {undoRecord && (
+        <div className="fixed bottom-4 left-3 right-3 z-40 flex items-center gap-3 bg-gray-700 rounded-2xl px-4 py-3 shadow-lg">
+          <span className="text-xl">{undoRecord.supply.emoji}</span>
+          <span className="flex-1 text-sm text-white">
+            {undoRecord.supply.name} {undoRecord.record.amount}{undoRecord.supply.unit} を記録
+          </span>
+          <button
+            onClick={handleUndo}
+            className="text-yellow-400 font-bold text-sm px-3 py-1.5 rounded-xl border border-yellow-400/50 active:bg-yellow-400/20"
+          >
+            取り消す
+          </button>
         </div>
       )}
 
