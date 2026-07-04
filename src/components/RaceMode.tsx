@@ -70,7 +70,12 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
     };
     const newRecords = [...records, record];
     setRecords(newRecords);
-    onUpdate({ ...activity, records: newRecords });
+    // エイドで初めて記録した補給はcarriedSuppliesに追加してボタン化する
+    const alreadyCarried = activity.carriedSupplies.some(c => c.supplyId === supply.id);
+    const newCarried = alreadyCarried
+      ? activity.carriedSupplies
+      : [...activity.carriedSupplies, { supplyId: supply.id, carriedAmount: 0 }];
+    onUpdate({ ...activity, records: newRecords, carriedSupplies: newCarried });
   }
 
   function handleTap(supply: SupplyItem) {
@@ -160,7 +165,8 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
         {carriedSupplies.map(({ carried, supply }) => {
           const last = lastIntake(supply.id);
           const total = totalIntake(supply.id);
-          const pct = carried.carriedAmount > 0 ? Math.min(100, Math.round((total / carried.carriedAmount) * 100)) : 0;
+          const isAid = carried.carriedAmount === 0;
+          const pct = !isAid ? Math.min(100, Math.round((total / carried.carriedAmount) * 100)) : 0;
           return (
             <button
               key={supply.id}
@@ -176,10 +182,16 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
               <span className="font-bold text-base leading-tight text-center">{supply.name}</span>
               <span className="text-xs opacity-80">{supply.defaultAmount}{supply.unit}/タップ</span>
               {last && <span className="text-xs opacity-70 mt-0.5">{minutesAgo(last)}</span>}
-              <div className="w-full mt-1 bg-black/20 rounded-full h-1.5">
-                <div className="h-1.5 rounded-full bg-white/70 transition-all" style={{ width: `${pct}%` }} />
-              </div>
-              <span className="text-xs opacity-60">{total}/{carried.carriedAmount}{supply.unit}</span>
+              {isAid ? (
+                <span className="text-xs opacity-60 mt-1">計{total}{supply.unit}</span>
+              ) : (
+                <>
+                  <div className="w-full mt-1 bg-black/20 rounded-full h-1.5">
+                    <div className="h-1.5 rounded-full bg-white/70 transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs opacity-60">{total}/{carried.carriedAmount}{supply.unit}</span>
+                </>
+              )}
             </button>
           );
         })}
