@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Square, Clock, Plus, X } from 'lucide-react';
-import { Activity, SupplyItem, IntakeRecord } from '../types';
+import { Square, Clock, Plus, X, NotebookPen } from 'lucide-react';
+import { Activity, SupplyItem, IntakeRecord, MemoRecord } from '../types';
 import { generateId } from '../utils/storage';
 
 interface Props {
@@ -38,6 +38,8 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
   const [adhocUnit, setAdhocUnit] = useState('個');
   const [undoRecord, setUndoRecord] = useState<{ record: IntakeRecord; supply: SupplyItem } | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [memoDialog, setMemoDialog] = useState(false);
+  const [memoText, setMemoText] = useState('');
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -91,6 +93,16 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
     setRecords(newRecords);
     onUpdate({ ...activity, records: newRecords });
     setUndoRecord(null);
+  }
+
+  function saveMemo() {
+    const text = memoText.trim();
+    if (!text) return;
+    const memo: MemoRecord = { id: generateId(), text, timestamp: new Date().toISOString() };
+    const newMemos = [...(activity.memos ?? []), memo];
+    onUpdate({ ...activity, records, memos: newMemos });
+    setMemoText('');
+    setMemoDialog(false);
   }
 
   function handleTap(supply: SupplyItem) {
@@ -164,6 +176,10 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
             <span className="text-2xl font-mono font-bold text-green-400">{formatElapsed(elapsed)}</span>
           </div>
         </div>
+        <button onClick={() => setMemoDialog(true)}
+          className="p-2 text-gray-400 active:text-white">
+          <NotebookPen size={22} />
+        </button>
         <button onClick={() => setShowConfirm(true)}
           className="flex items-center gap-2 bg-red-600 px-4 py-2 rounded-xl font-semibold text-sm">
           <Square size={16} />終了
@@ -258,6 +274,34 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
           >
             取り消す
           </button>
+        </div>
+      )}
+
+      {/* Memo dialog */}
+      {memoDialog && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-end">
+          <div className="bg-white text-gray-900 w-full rounded-t-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold">メモ</h2>
+              <button onClick={() => { setMemoDialog(false); setMemoText(''); }} className="p-1 text-gray-400">
+                <X size={22} />
+              </button>
+            </div>
+            <textarea
+              value={memoText}
+              onChange={e => setMemoText(e.target.value)}
+              placeholder="現在の状況、体調、エイドの場所など…"
+              className="w-full border-2 rounded-xl px-3 py-3 text-base resize-none"
+              rows={4}
+              autoFocus
+            />
+            <div className="flex gap-3 mt-3">
+              <button onClick={() => { setMemoDialog(false); setMemoText(''); }}
+                className="flex-1 py-3 border rounded-xl font-medium text-gray-700">キャンセル</button>
+              <button onClick={saveMemo} disabled={!memoText.trim()}
+                className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold disabled:opacity-40">保存</button>
+            </div>
+          </div>
         </div>
       )}
 

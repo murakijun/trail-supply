@@ -1,4 +1,4 @@
-import { ChevronLeft, Trash2, Play } from 'lucide-react';
+import { ChevronLeft, Trash2, Play, NotebookPen } from 'lucide-react';
 import { Activity, SupplyItem } from '../types';
 
 interface Props {
@@ -10,11 +10,17 @@ interface Props {
 }
 
 export default function HistoryView({ activity, supplies, onBack, onUpdate, onResume }: Props) {
-  const sortedRecords = [...activity.records].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
+  // 補給記録とメモを時系列にマージ
+  type TimelineItem =
+    | { kind: 'record'; id: string; supplyId: string; amount: number; timestamp: string }
+    | { kind: 'memo';   id: string; text: string; timestamp: string };
 
-  function deleteRecord(id: string) {
+  const timeline: TimelineItem[] = [
+    ...activity.records.map(r => ({ kind: 'record' as const, ...r })),
+    ...(activity.memos ?? []).map(m => ({ kind: 'memo' as const, ...m })),
+  ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+function deleteRecord(id: string) {
     const updated = { ...activity, records: activity.records.filter(r => r.id !== id) };
     onUpdate(updated);
   }
@@ -118,18 +124,36 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
         {/* Timeline */}
         <div className="bg-white rounded-xl p-4">
           <h2 className="font-semibold text-gray-800 mb-3">タイムライン</h2>
-          {sortedRecords.length === 0 && (
+          {timeline.length === 0 && (
             <p className="text-gray-400 text-sm text-center py-6">記録がありません</p>
           )}
           <div className="space-y-2">
-            {sortedRecords.map(record => {
-              const supply = supplies.find(s => s.id === record.supplyId);
-              if (!supply) return null;
-              const time = new Date(record.timestamp);
+            {timeline.map(item => {
+              const time = new Date(item.timestamp);
               const hm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
-              const elapsed = elapsedFrom(record.timestamp);
+              const elapsed = elapsedFrom(item.timestamp);
+
+              if (item.kind === 'memo') {
+                return (
+                  <div key={item.id} className="flex items-start gap-3 py-1.5 border-b last:border-0">
+                    <div className="text-center flex-shrink-0 w-14">
+                      <div className="text-sm font-mono text-gray-700">{hm}</div>
+                      {elapsed && <div className="text-xs text-gray-400">{elapsed}</div>}
+                    </div>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-50">
+                      <NotebookPen size={15} className="text-blue-400" />
+                    </div>
+                    <div className="flex-1 pt-0.5">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.text}</p>
+                    </div>
+                  </div>
+                );
+              }
+
+              const supply = supplies.find(s => s.id === item.supplyId);
+              if (!supply) return null;
               return (
-                <div key={record.id} className="flex items-center gap-3 py-1.5 border-b last:border-0">
+                <div key={item.id} className="flex items-center gap-3 py-1.5 border-b last:border-0">
                   <div className="text-center flex-shrink-0 w-14">
                     <div className="text-sm font-mono text-gray-700">{hm}</div>
                     {elapsed && <div className="text-xs text-gray-400">{elapsed}</div>}
@@ -139,9 +163,9 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
                   </div>
                   <div className="flex-1">
                     <span className="font-medium text-gray-900">{supply.name}</span>
-                    <span className="text-gray-500 text-sm ml-2">{record.amount}{supply.unit}</span>
+                    <span className="text-gray-500 text-sm ml-2">{item.amount}{supply.unit}</span>
                   </div>
-                  <button onClick={() => deleteRecord(record.id)} className="p-2 text-gray-300 hover:text-red-500">
+                  <button onClick={() => deleteRecord(item.id)} className="p-2 text-gray-300 hover:text-red-500">
                     <Trash2 size={16} />
                   </button>
                 </div>

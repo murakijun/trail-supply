@@ -22,6 +22,12 @@ export interface IntakeRecord {
   timestamp: string;
 }
 
+export interface MemoRecord {
+  id: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface Activity {
   id: string;
   name: string;
@@ -30,6 +36,7 @@ export interface Activity {
   status: 'preparing' | 'active' | 'completed';
   carriedSupplies: CarriedSupply[];
   records: IntakeRecord[];
+  memos?: MemoRecord[];
 }
 
 export interface AppData {
