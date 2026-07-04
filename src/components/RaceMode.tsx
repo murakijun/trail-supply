@@ -372,7 +372,7 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
                   <div className="flex gap-2">
                     <input
                       type="text" inputMode="decimal"
-                      onFocus={e => e.target.select()}
+                      onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
                       value={adhocAmount}
                       onChange={e => setAdhocAmount(e.target.value)}
                       placeholder="量"
@@ -421,7 +421,7 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
               <div className="flex gap-2 items-center">
                 <input
                   type="text" inputMode="decimal"
-                      onFocus={e => e.target.select()}
+                      onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
                   value={customAmount}
                   onChange={e => setCustomAmount(e.target.value)}
                   className="flex-1 border-2 rounded-xl px-2 py-2 text-center text-sm"

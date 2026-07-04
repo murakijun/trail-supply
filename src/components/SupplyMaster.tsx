@@ -174,7 +174,7 @@ export default function SupplyMaster({ supplies, onUpdate, onBack }: Props) {
                 <label className="text-sm font-medium text-gray-700 block mb-1">1タップの量</label>
                 <input
                   type="text" inputMode="decimal"
-                      onFocus={e => e.target.select()}
+                      onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
                   value={form.defaultAmount}
                   onChange={e => setForm(f => ({ ...f, defaultAmount: Number(e.target.value) }))}
                   className="w-full border rounded-lg px-3 py-2 text-base"

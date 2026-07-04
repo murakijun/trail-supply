@@ -137,7 +137,7 @@ export default function ActivitySetup({ supplies, activity, onSave, onBack }: Pr
                         </button>
                         <input
                           type="text" inputMode="decimal"
-                      onFocus={e => e.target.select()}
+                      onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
                           value={c.carriedAmount}
                           onChange={e => setAmount(supply.id, Number(e.target.value))}
                           className="w-16 text-center border rounded-lg py-1 text-sm"

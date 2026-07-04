@@ -312,7 +312,7 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
                     <label className="text-xs text-gray-500 block mb-1">量</label>
                     <div className="flex items-center gap-2">
                       <input type="text" inputMode="decimal"
-                      onFocus={e => e.target.select()}
+                      onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
                         value={addState.amount}
                         onChange={e => setAddState({ ...addState, amount: Number(e.target.value) })}
                         className="flex-1 border-2 rounded-xl px-3 py-2 text-lg text-center"
@@ -383,7 +383,7 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
                   <div className="flex items-center gap-2">
                     <input
                       type="text" inputMode="decimal"
-                      onFocus={e => e.target.select()}
+                      onFocus={e => { const t = e.target; setTimeout(() => t.select(), 0); }}
                       value={editState.amount}
                       onChange={e => setEditState({ ...editState, amount: Number(e.target.value) })}
                       className="flex-1 border-2 rounded-xl px-3 py-2 text-lg text-center"
