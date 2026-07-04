@@ -173,7 +173,7 @@ export default function SupplyMaster({ supplies, onUpdate, onBack }: Props) {
               <div className="flex-1">
                 <label className="text-sm font-medium text-gray-700 block mb-1">1タップの量</label>
                 <input
-                  type="number"
+                  type="text" inputMode="decimal"
                       onFocus={e => e.target.select()}
                   value={form.defaultAmount}
                   onChange={e => setForm(f => ({ ...f, defaultAmount: Number(e.target.value) }))}

@@ -136,7 +136,7 @@ export default function ActivitySetup({ supplies, activity, onSave, onBack }: Pr
                           <Minus size={14} />
                         </button>
                         <input
-                          type="number"
+                          type="text" inputMode="decimal"
                       onFocus={e => e.target.select()}
                           value={c.carriedAmount}
                           onChange={e => setAmount(supply.id, Number(e.target.value))}

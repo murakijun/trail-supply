@@ -311,7 +311,7 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
                   <div className="flex-1">
                     <label className="text-xs text-gray-500 block mb-1">量</label>
                     <div className="flex items-center gap-2">
-                      <input type="number"
+                      <input type="text" inputMode="decimal"
                       onFocus={e => e.target.select()}
                         value={addState.amount}
                         onChange={e => setAddState({ ...addState, amount: Number(e.target.value) })}
@@ -382,7 +382,7 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
                   <label className="text-xs text-gray-500 block mb-1">量</label>
                   <div className="flex items-center gap-2">
                     <input
-                      type="number"
+                      type="text" inputMode="decimal"
                       onFocus={e => e.target.select()}
                       value={editState.amount}
                       onChange={e => setEditState({ ...editState, amount: Number(e.target.value) })}

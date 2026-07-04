@@ -371,7 +371,7 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
                   />
                   <div className="flex gap-2">
                     <input
-                      type="number"
+                      type="text" inputMode="decimal"
                       onFocus={e => e.target.select()}
                       value={adhocAmount}
                       onChange={e => setAdhocAmount(e.target.value)}
@@ -420,7 +420,7 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAdd
               ))}
               <div className="flex gap-2 items-center">
                 <input
-                  type="number"
+                  type="text" inputMode="decimal"
                       onFocus={e => e.target.select()}
                   value={customAmount}
                   onChange={e => setCustomAmount(e.target.value)}
