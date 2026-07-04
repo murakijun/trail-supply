@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ChevronLeft, Trash2, Play, NotebookPen, Pencil, X } from 'lucide-react';
-import { Activity, SupplyItem } from '../types';
+import { ChevronLeft, Trash2, Play, NotebookPen, Pencil, X, Plus } from 'lucide-react';
+import { Activity, SupplyItem, IntakeRecord, MemoRecord } from '../types';
+import { generateId } from '../utils/storage';
 
 interface Props {
   activity: Activity;
@@ -14,13 +15,45 @@ type EditState =
   | { kind: 'record'; id: string; supply: SupplyItem; amount: number; time: string }
   | { kind: 'memo';   id: string; text: string; time: string };
 
+// 追加ダイアログのステップ管理
+type AddStep =
+  | { step: 'pick' }                                          // 補給 or メモ選択
+  | { step: 'record'; supply: SupplyItem; amount: number; time: string }  // 補給入力
+  | { step: 'memo'; text: string; time: string };             // メモ入力
+
 function toHM(timestamp: string) {
   const t = new Date(timestamp);
   return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
 }
 
+// デフォルト時刻：スタート時刻またはレース当日の現在時刻
+function defaultTime(activity: Activity): string {
+  if (activity.startTime) return activity.startTime;
+  return new Date().toTimeString().slice(0, 5);
+}
+
 export default function HistoryView({ activity, supplies, onBack, onUpdate, onResume }: Props) {
   const [editState, setEditState] = useState<EditState | null>(null);
+  const [addState, setAddState] = useState<AddStep | null>(null);
+
+  function saveAdd() {
+    if (!addState) return;
+    if (addState.step === 'record') {
+      const ts = new Date(`${activity.date}T${addState.time}:00`).toISOString();
+      const record: IntakeRecord = { id: generateId(), supplyId: addState.supply.id, amount: addState.amount, timestamp: ts };
+      // carriedSuppliesに未登録なら追加（ボタン化）
+      const alreadyCarried = activity.carriedSupplies.some(c => c.supplyId === addState.supply.id);
+      const newCarried = alreadyCarried
+        ? activity.carriedSupplies
+        : [...activity.carriedSupplies, { supplyId: addState.supply.id, carriedAmount: 0 }];
+      onUpdate({ ...activity, records: [...activity.records, record], carriedSupplies: newCarried });
+    } else if (addState.step === 'memo') {
+      const ts = new Date(`${activity.date}T${addState.time}:00`).toISOString();
+      const memo: MemoRecord = { id: generateId(), text: addState.text, timestamp: ts };
+      onUpdate({ ...activity, memos: [...(activity.memos ?? []), memo] });
+    }
+    setAddState(null);
+  }
 
   // 補給記録とメモを時系列にマージ
   type TimelineItem =
@@ -166,7 +199,15 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
 
         {/* Timeline */}
         <div className="bg-white rounded-xl p-4">
-          <h2 className="font-semibold text-gray-800 mb-3">タイムライン</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-800">タイムライン</h2>
+            <button
+              onClick={() => setAddState({ step: 'pick' })}
+              className="flex items-center gap-1 text-blue-600 text-sm font-medium"
+            >
+              <Plus size={16} />追加
+            </button>
+          </div>
           {timeline.length === 0 && (
             <p className="text-gray-400 text-sm text-center py-6">記録がありません</p>
           )}
@@ -222,6 +263,104 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
           </div>
         </div>
       </div>
+
+      {/* Add dialog */}
+      {addState && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+          <div className="bg-white w-full rounded-t-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b flex-shrink-0">
+              <h2 className="text-lg font-bold">
+                {addState.step === 'pick' ? '追加する種類を選択' :
+                 addState.step === 'record' ? `${addState.supply.emoji} ${addState.supply.name}` :
+                 'メモを追加'}
+              </h2>
+              <button onClick={() => setAddState(null)} className="p-1 text-gray-400"><X size={22} /></button>
+            </div>
+
+            {/* Step 1: pick type */}
+            {addState.step === 'pick' && (
+              <div className="overflow-y-auto p-4 space-y-3">
+                <p className="text-xs text-gray-400 font-medium mb-1">補給を選ぶ</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {supplies.map(s => (
+                    <button key={s.id}
+                      onClick={() => setAddState({ step: 'record', supply: s, amount: s.defaultAmount, time: defaultTime(activity) })}
+                      className="rounded-2xl p-3 flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                      style={{ backgroundColor: s.color }}>
+                      <span className="text-3xl leading-none">{s.emoji}</span>
+                      <span className="text-white font-semibold text-xs text-center leading-tight">{s.name}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t pt-3">
+                  <button
+                    onClick={() => setAddState({ step: 'memo', text: '', time: defaultTime(activity) })}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-gray-200 text-gray-700"
+                  >
+                    <NotebookPen size={20} className="text-blue-400" />
+                    <span className="font-medium">メモを追加</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2a: record detail */}
+            {addState.step === 'record' && (
+              <div className="p-5 space-y-4">
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500 block mb-1">量</label>
+                    <div className="flex items-center gap-2">
+                      <input type="number"
+                        value={addState.amount}
+                        onChange={e => setAddState({ ...addState, amount: Number(e.target.value) })}
+                        className="flex-1 border-2 rounded-xl px-3 py-2 text-lg text-center"
+                        min={0} step={0.5} />
+                      <span className="text-gray-500">{addState.supply.unit}</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-xs text-gray-500 block mb-1">時刻</label>
+                    <input type="time"
+                      value={addState.time}
+                      onChange={e => setAddState({ ...addState, time: e.target.value })}
+                      className="w-full border-2 rounded-xl px-3 py-2 text-lg" />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setAddState({ step: 'pick' })} className="flex-1 py-3 border rounded-xl font-medium text-gray-700">戻る</button>
+                  <button onClick={saveAdd} disabled={!(addState.amount > 0)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold disabled:opacity-40">追加</button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2b: memo detail */}
+            {addState.step === 'memo' && (
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">時刻</label>
+                  <input type="time"
+                    value={addState.time}
+                    onChange={e => setAddState({ ...addState, time: e.target.value })}
+                    className="w-full border-2 rounded-xl px-3 py-2 text-base" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">テキスト</label>
+                  <textarea
+                    value={addState.text}
+                    onChange={e => setAddState({ ...addState, text: e.target.value })}
+                    className="w-full border-2 rounded-xl px-3 py-2 text-base resize-none"
+                    rows={3} autoFocus />
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setAddState({ step: 'pick' })} className="flex-1 py-3 border rounded-xl font-medium text-gray-700">戻る</button>
+                  <button onClick={saveAdd} disabled={!addState.text.trim()} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold disabled:opacity-40">追加</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Edit dialog */}
       {editState && (
