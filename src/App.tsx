@@ -98,6 +98,10 @@ export default function App() {
         supplies={data.supplies}
         onUpdate={handleActivityUpdate}
         onFinish={handleRaceFinish}
+        onAddSupply={supply => {
+          const updated = updateSupplies([...data.supplies, supply]);
+          setData(updated);
+        }}
       />
     );
   }

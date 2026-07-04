@@ -8,6 +8,7 @@ interface Props {
   supplies: SupplyItem[];
   onUpdate: (activity: Activity) => void;
   onFinish: (activity: Activity) => void;
+  onAddSupply: (supply: SupplyItem) => void;
 }
 
 function formatElapsed(ms: number): string {
@@ -25,13 +26,16 @@ function minutesAgo(timestamp: string): string {
   return `${diff}分前`;
 }
 
-export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Props) {
+export default function RaceMode({ activity, supplies, onUpdate, onFinish, onAddSupply }: Props) {
   const [records, setRecords] = useState<IntakeRecord[]>(activity.records);
   const [elapsed, setElapsed] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [amountDialog, setAmountDialog] = useState<{ supply: SupplyItem } | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [aidDialog, setAidDialog] = useState(false);
+  const [adhocName, setAdhocName] = useState('');
+  const [adhocAmount, setAdhocAmount] = useState('');
+  const [adhocUnit, setAdhocUnit] = useState('個');
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tick, setTick] = useState(0);
 
@@ -91,6 +95,27 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
     setAidDialog(false);
     setAmountDialog({ supply });
     setCustomAmount(String(supply.defaultAmount));
+  }
+
+  function recordAdhoc() {
+    const name = adhocName.trim();
+    const amount = parseFloat(adhocAmount);
+    if (!name || !(amount > 0)) return;
+    const newSupply: SupplyItem = {
+      id: generateId(),
+      name,
+      category: 'other',
+      unit: adhocUnit.trim() || '個',
+      defaultAmount: amount,
+      color: '#6b7280',
+      emoji: '🍴',
+    };
+    onAddSupply(newSupply);
+    addRecord(newSupply, amount);
+    setAdhocName('');
+    setAdhocAmount('');
+    setAdhocUnit('個');
+    setAidDialog(false);
   }
 
   function confirmFinish() {
@@ -217,22 +242,63 @@ export default function RaceMode({ activity, supplies, onUpdate, onFinish }: Pro
                 <X size={22} />
               </button>
             </div>
-            <div className="overflow-y-auto p-4">
-              {supplies.length === 0 && (
-                <p className="text-gray-400 text-center py-8">補給マスターにアイテムがありません</p>
+            <div className="overflow-y-auto p-4 space-y-4">
+              {/* マスターから選ぶ */}
+              {supplies.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-400 font-medium mb-2">マスターから選ぶ</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {supplies.map(supply => (
+                      <button
+                        key={supply.id}
+                        onClick={() => openAmountDialog(supply)}
+                        className="rounded-2xl p-3 flex flex-col items-center gap-1 active:scale-95 transition-transform"
+                        style={{ backgroundColor: supply.color }}
+                      >
+                        <span className="text-3xl leading-none">{supply.emoji}</span>
+                        <span className="text-white font-semibold text-xs text-center leading-tight">{supply.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-              <div className="grid grid-cols-3 gap-3">
-                {supplies.map(supply => (
-                  <button
-                    key={supply.id}
-                    onClick={() => openAmountDialog(supply)}
-                    className="rounded-2xl p-3 flex flex-col items-center gap-1 active:scale-95 transition-transform"
-                    style={{ backgroundColor: supply.color }}
-                  >
-                    <span className="text-3xl leading-none">{supply.emoji}</span>
-                    <span className="text-white font-semibold text-xs text-center leading-tight">{supply.name}</span>
-                  </button>
-                ))}
+
+              {/* 名前で自由入力 */}
+              <div className="border-t pt-4">
+                <p className="text-xs text-gray-400 font-medium mb-3">名前を入力して記録（マスターにない補給）</p>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={adhocName}
+                    onChange={e => setAdhocName(e.target.value)}
+                    placeholder="補給名（例: コーラ、おにぎり）"
+                    className="w-full border-2 rounded-xl px-3 py-3 text-base"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={adhocAmount}
+                      onChange={e => setAdhocAmount(e.target.value)}
+                      placeholder="量"
+                      className="flex-1 border-2 rounded-xl px-3 py-3 text-base"
+                      min={0}
+                    />
+                    <input
+                      type="text"
+                      value={adhocUnit}
+                      onChange={e => setAdhocUnit(e.target.value)}
+                      placeholder="単位"
+                      className="w-20 border-2 rounded-xl px-3 py-3 text-base text-center"
+                    />
+                    <button
+                      onClick={recordAdhoc}
+                      disabled={!adhocName.trim() || !(parseFloat(adhocAmount) > 0)}
+                      className="px-4 py-3 bg-orange-500 text-white rounded-xl font-semibold disabled:opacity-40"
+                    >
+                      記録
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
