@@ -1,4 +1,5 @@
-import { ChevronLeft, Trash2, Play, NotebookPen } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronLeft, Trash2, Play, NotebookPen, Pencil, X } from 'lucide-react';
 import { Activity, SupplyItem } from '../types';
 
 interface Props {
@@ -9,7 +10,18 @@ interface Props {
   onResume: (activity: Activity) => void;
 }
 
+type EditState =
+  | { kind: 'record'; id: string; supply: SupplyItem; amount: number; time: string }
+  | { kind: 'memo';   id: string; text: string; time: string };
+
+function toHM(timestamp: string) {
+  const t = new Date(timestamp);
+  return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+}
+
 export default function HistoryView({ activity, supplies, onBack, onUpdate, onResume }: Props) {
+  const [editState, setEditState] = useState<EditState | null>(null);
+
   // 補給記録とメモを時系列にマージ
   type TimelineItem =
     | { kind: 'record'; id: string; supplyId: string; amount: number; timestamp: string }
@@ -20,14 +32,12 @@ export default function HistoryView({ activity, supplies, onBack, onUpdate, onRe
     ...(activity.memos ?? []).map(m => ({ kind: 'memo' as const, ...m })),
   ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-function deleteRecord(id: string) {
-    const updated = { ...activity, records: activity.records.filter(r => r.id !== id) };
-    onUpdate(updated);
+  function deleteRecord(id: string) {
+    onUpdate({ ...activity, records: activity.records.filter(r => r.id !== id) });
   }
 
   function handleResume() {
-    const updated: Activity = { ...activity, status: 'active' };
-    onResume(updated);
+    onResume({ ...activity, status: 'active' });
   }
 
   const startMs = activity.startTime ? (() => {
@@ -47,6 +57,41 @@ function deleteRecord(id: string) {
     return `+${m}分`;
   }
 
+  // 編集開始
+  function startEditRecord(item: { id: string; supplyId: string; amount: number; timestamp: string }) {
+    const supply = supplies.find(s => s.id === item.supplyId);
+    if (!supply) return;
+    setEditState({ kind: 'record', id: item.id, supply, amount: item.amount, time: toHM(item.timestamp) });
+  }
+
+  function startEditMemo(item: { id: string; text: string; timestamp: string }) {
+    setEditState({ kind: 'memo', id: item.id, text: item.text, time: toHM(item.timestamp) });
+  }
+
+  // 編集保存
+  function saveEdit() {
+    if (!editState) return;
+    // HH:MM → ISO timestamp（アクティビティの日付ベース）
+    const newTs = new Date(`${activity.date}T${editState.time}:00`).toISOString();
+
+    if (editState.kind === 'record') {
+      onUpdate({
+        ...activity,
+        records: activity.records.map(r =>
+          r.id === editState.id ? { ...r, amount: editState.amount, timestamp: newTs } : r
+        ),
+      });
+    } else {
+      onUpdate({
+        ...activity,
+        memos: (activity.memos ?? []).map(m =>
+          m.id === editState.id ? { ...m, text: editState.text, timestamp: newTs } : m
+        ),
+      });
+    }
+    setEditState(null);
+  }
+
   // Per-supply stats（持参分）
   const supplyStats = activity.carriedSupplies.map(c => {
     const supply = supplies.find(s => s.id === c.supplyId);
@@ -56,17 +101,15 @@ function deleteRecord(id: string) {
     return { supply, carried: c.carriedAmount, total, pct };
   }).filter(Boolean) as { supply: SupplyItem; carried: number; total: number; pct: number }[];
 
-  // エイドで受け取った補給（carriedSuppliesにないもの）
+  // エイドで受け取った補給
   const carriedIds = new Set(activity.carriedSupplies.map(c => c.supplyId));
-  const aidSupplyIds = [...new Set(
-    activity.records.filter(r => !carriedIds.has(r.supplyId)).map(r => r.supplyId)
-  )];
-  const aidStats = aidSupplyIds.map(id => {
-    const supply = supplies.find(s => s.id === id);
-    if (!supply) return null;
-    const total = activity.records.filter(r => r.supplyId === id).reduce((s, r) => s + r.amount, 0);
-    return { supply, total };
-  }).filter(Boolean) as { supply: SupplyItem; total: number }[];
+  const aidStats = [...new Set(activity.records.filter(r => !carriedIds.has(r.supplyId)).map(r => r.supplyId))]
+    .map(id => {
+      const supply = supplies.find(s => s.id === id);
+      if (!supply) return null;
+      const total = activity.records.filter(r => r.supplyId === id).reduce((s, r) => s + r.amount, 0);
+      return { supply, total };
+    }).filter(Boolean) as { supply: SupplyItem; total: number }[];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -129,8 +172,7 @@ function deleteRecord(id: string) {
           )}
           <div className="space-y-2">
             {timeline.map(item => {
-              const time = new Date(item.timestamp);
-              const hm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+              const hm = toHM(item.timestamp);
               const elapsed = elapsedFrom(item.timestamp);
 
               if (item.kind === 'memo') {
@@ -146,6 +188,9 @@ function deleteRecord(id: string) {
                     <div className="flex-1 pt-0.5">
                       <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.text}</p>
                     </div>
+                    <button onClick={() => startEditMemo(item)} className="p-2 text-gray-300 active:text-blue-500 flex-shrink-0">
+                      <Pencil size={15} />
+                    </button>
                   </div>
                 );
               }
@@ -165,8 +210,11 @@ function deleteRecord(id: string) {
                     <span className="font-medium text-gray-900">{supply.name}</span>
                     <span className="text-gray-500 text-sm ml-2">{item.amount}{supply.unit}</span>
                   </div>
-                  <button onClick={() => deleteRecord(item.id)} className="p-2 text-gray-300 hover:text-red-500">
-                    <Trash2 size={16} />
+                  <button onClick={() => startEditRecord(item)} className="p-2 text-gray-300 active:text-blue-500">
+                    <Pencil size={15} />
+                  </button>
+                  <button onClick={() => deleteRecord(item.id)} className="p-2 text-gray-300 active:text-red-500">
+                    <Trash2 size={15} />
                   </button>
                 </div>
               );
@@ -174,6 +222,75 @@ function deleteRecord(id: string) {
           </div>
         </div>
       </div>
+
+      {/* Edit dialog */}
+      {editState && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+          <div className="bg-white w-full rounded-t-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">
+                {editState.kind === 'record'
+                  ? `${editState.supply.emoji} ${editState.supply.name} を編集`
+                  : 'メモを編集'}
+              </h2>
+              <button onClick={() => setEditState(null)} className="p-1 text-gray-400"><X size={22} /></button>
+            </div>
+
+            {editState.kind === 'record' ? (
+              <div className="flex gap-3 items-center">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 block mb-1">量</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={editState.amount}
+                      onChange={e => setEditState({ ...editState, amount: Number(e.target.value) })}
+                      className="flex-1 border-2 rounded-xl px-3 py-2 text-lg text-center"
+                      min={0} step={0.5}
+                    />
+                    <span className="text-gray-500">{editState.supply.unit}</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 block mb-1">時刻</label>
+                  <input
+                    type="time"
+                    value={editState.time}
+                    onChange={e => setEditState({ ...editState, time: e.target.value })}
+                    className="w-full border-2 rounded-xl px-3 py-2 text-lg"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">時刻</label>
+                  <input
+                    type="time"
+                    value={editState.time}
+                    onChange={e => setEditState({ ...editState, time: e.target.value })}
+                    className="w-full border-2 rounded-xl px-3 py-2 text-base"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">テキスト</label>
+                  <textarea
+                    value={editState.text}
+                    onChange={e => setEditState({ ...editState, text: e.target.value })}
+                    className="w-full border-2 rounded-xl px-3 py-2 text-base resize-none"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setEditState(null)} className="flex-1 py-3 border rounded-xl font-medium text-gray-700">キャンセル</button>
+              <button onClick={saveEdit} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold">保存</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
